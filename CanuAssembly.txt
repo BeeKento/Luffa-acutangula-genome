@@ -24,4 +24,4 @@ samtools faidx $PBCanuContig
 
 samtools index $PBAlignedBAM
 
-variantCaller --algorithm=best $PBAlignedBAM --referenceFilename=$PBCanuContig -j16 -o PREFIXForPolishingFASTQ
+variantCaller --algorithm=best $PBAlignedBAM --referenceFilename=$PBCanuContig -j24 -o PREFIXForPolishingFASTQ
