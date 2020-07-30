@@ -1,0 +1,37 @@
+#Commands for repeat identification of Luffa acutangula genome assembly.
+
+#use Hi-C assembly version to build repeat database
+
+/HOMEDIR/RepeatModeler/BuildDatabase -name Luffa_ac $PBHi-CinFASTA
+
+/HOMEDIR/RepeatModeler/RepeatModeler -pa 20 -database Luffa_ac >& run.out
+
+
+#also get Repeat library from Repbase:
+
+We got "plnrep.ref" for plant and "dcotrep.ref" for dicot plant from https://www.girinst.org/repbase/update/index.html
+
+
+#LTR finder by ltrharvest and LTR FINDER software
+
+/HOMEDIR/gt ltrharvest -index $PBHi-CinFASTA -minlenltr 100 -maxlenltr 7000 -mintsd 4 \
+                       -maxtsd 6 -motif TGCA -motifmis 1 -similar 85 -vic 10 \
+		       -seed 20 -seqids yes > Luffa_ACu.harvest.scn &
+
+
+/HOMEDIR/ltr_finder -D 15000 -d 1000 -L 7000 -l 100 -p 20 -C -M 0.9 $PBHi-CinFASTA \
+                       -s /HOMEDIR/LTR_Finder/source/tRNA/Athal-tRNAs.fa -a /HOMEDIR/ps_scan \
+		       -f Luffa.forFig > Luffa_ACu_LTR.scn &
+
+/HOMEDIR/LTR_retriever -genome $PBHi-CinFASTA -infinder Luffa_ACu_LTR.scn -inharvest Luffa_ACu.harvest.scn \
+                       -threads 20 -u 0.0000000045 -noanno -notrunc
+
+
+#concatenate repbase library and Luffa libraries:
+
+cat plnrep.ref dcotrep.ref consensi.fa.classified Luffa_ACu_LTR.lib > Luffa_acutangula_repeat.lib
+
+
+#Run repeat masker with all repeat library
+
+/HOMEDIR/RepeatMasker/RepeatMasker -pa 20 -gff -xsmall -lib Luffa_acutangula_repeat.lib $PBHi-CinFASTA
