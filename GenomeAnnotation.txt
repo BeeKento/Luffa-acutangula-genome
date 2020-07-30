@@ -1,0 +1,66 @@
+#Annotation of the Luffa acutangula genome was completed using the the following pipeline:
+
+###Homology prediction based on RNA was done PASA software
+###Run the PASA alignment assembly pipeline
+
+perl Launch_PASA_pipeline.pl -c /HOMEDIR/PASApipeline-v2.3.3/pasa_conf/pasa.alignAssembly.txt \
+                             -C -R -g $PBHi-CMasked -t $PBIsoseqINFASTA --ALIGNERS gmap
+
+#extract of ORFs from PASA assemblies
+/HOMEDIR/PASApipeline-v2.3.3/scripts/pasa_asmbls_to_training_set.dbi --pasa_transcripts_fasta $PASAassemblyINFASTA \
+                             --pasa_transcripts_gff3 $PASAassemblyGFF3
+
+
+###Homology prediction based on protein was done by AATpackage-r03052011
+
+/HOMEDIR/AATpackage-r03052011/bin/AAT.pl -P -q $PBHi-CMasked -s $WaterMelonProteinINFASTA \
+                             --dps '-f 100 -i 30 -a 200' --filter '-c 10' --nap '-x 10'
+
+/HOMEDIR/AATpackage-r03052011/bin/AAT.pl -P -q $PBHi-CMasked -s $MelonProteinINFASTA \
+                             --dps '-f 100 -i 30 -a 200' --filter '-c 10' --nap '-x 10'
+
+
+###Augustus ab-initio prediction
+###train augustus model from closest species by convert gff to genbank format
+
+/HOMEDIR/augustus-3.2.1/scripts/gff2gbSmallDNA.pl $WaterMelonGFF3 $WaterMelonGenomeINFASTA 1000 genes.raw.gb
+
+#split gene to train and test dataset
+
+/HOMEDIR/augustus-3.2.1/scripts/randomSplit.pl genes.raw.gb 1000
+
+export AUGUSTUS_CONFIG_PATH=/HOMEDIR/augustus-3.2.1/config
+
+#create new species 
+
+/HOMEDIR/augustus-3.2.1/scripts/new_species.pl --species=watermelon
+
+#Create training model 
+/HOMEDIR/augustus-3.2.1/bin/etraining --species=watermelon genes.raw.gb.train 
+
+#run trainining model with test dataset 
+/HOMEDIR/augustus-3.2.1/bin/augustus --species=watermelon genes.raw.gb.test | tee firsttest.out
+
+/HOMEDIR/augustus-3.2.1/bin/augustus --species=watermelon $PBHi-CMasked --gff3=on
+
+
+###Combine all evidence using EVM software
+
+/HOMEDIR/EVidenceModeler-1.1.1/EvmUtils/partition_EVM_inputs.pl --genome $PBHi-CMasked \
+					--gene_predictions $GFF3fromAUGUSTUS --protein_alignments $GFF3fromAAT \
+					--transcript_alignments $GFF3fromPASA --segmentSize 100000 --overlapSize 10000 \
+					--partition_listing partitions_list.out
+
+/HOMEDIR/EVidenceModeler-1.1.1/EvmUtils/write_EVM_commands.pl --genome $PBHi-CMasked \
+                                        --weights weights.txt --gene_predictions $GFF3fromAUGUSTUS --protein_alignments GFF3fromAAT \
+					--transcript_alignments $GFF3fromPASA --output_file_name evm.out --partitions partitions_list.out
+
+
+/HOMEDIR/EVidenceModeler-1.1.1/EvmUtils/execute_EVM_commands.pl commands.list | tee run.log
+
+/HOMEDIR/EVidenceModeler-1.1.1/EvmUtils/recombine_EVM_partial_outputs.pl --partitions partitions_list.out --output_file_name evm.out
+
+/HOMEDIR/EVidenceModeler-1.1.1/EvmUtils/convert_EVM_outputs_to_GFF3.pl --partitions partitions_list.out --output evm.out \
+                                        --genome $PBHi-CMasked
+
+find . -name "evm.out.gff3" -exec cat {} \; > GFF3fromEVM
