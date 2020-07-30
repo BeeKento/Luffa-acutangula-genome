@@ -1,0 +1,27 @@
+#assembly of the Luffa acutangula genome using canu was carried out with the following parameters:
+canu -correct -p $PREFIX -d $OUTDIR \
+                        useGrid=false corThreads=24 ovsMemory=0.25g \
+                        genomeSize=800m minReadLength=1000 minOverlapLength=500 -pacbio-raw $PBINFASTQ
+
+Canu assembly parameters:
+canu -trim -p $PREFIX -d $OUTDIR \
+                        useGrid=false corThreads=24 ovsMemory=0.45g \
+                        genomeSize=800m minReadLength=1000 minOverlapLength=500 -pacbio-corrected $PBcorrected
+
+
+canu -assemble -p $PREFIX -d $OUTDIR \
+                        useGrid=false corThreads=24 ovsMemory=0.45g \
+                        correctedErrorRate=0.04 corMhapSensitivity=normal \
+                        genomeSize=800m minReadLength=1000 minOverlapLength=500 -pacbio-corrected $PBcorrectedTrimmed
+
+#Genome polishing of the Luffa acutangula using the GenomicConsensus package was done by the following command:
+
+bax2bam $PBraw.1.bax.h5 $PBraw.2.bax.h5 $PBraw.3.bax.h5 -o PREFIXForSubreadBAM
+
+pbalign --nproc 20 --minLength 100 --forQuiver -v $PBSubreadBAM $PBCanuContig PREFIXForAlignedBAM
+
+samtools faidx $PBCanuContig
+
+samtools index $PBAlignedBAM
+
+variantCaller --algorithm=best $PBAlignedBAM --referenceFilename=$PBCanuContig -j16 -o PREFIXForPolishingFASTQ
